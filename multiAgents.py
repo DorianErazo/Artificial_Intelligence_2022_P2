@@ -74,7 +74,49 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        newCapsules = successorGameState.getCapsules()
+
+        #La primera condicion devuelve el numero maximop disponible si hemos ganado
+        if successorGameState.isWin():
+          return float('inf')
+
+        utility = successorGameState.getScore()
+
+        #En este bucle lo que hacemos es restar las distancia al fantasm
+        #la excepcion es cuando el fantasma esta asustado.
+        for ghostState in newGhostStates:
+            mDistance = manhattanDistance(ghostState.configuration.getPosition(), newPos)
+            if ghostState.scaredTimer <= 1:
+                
+                if 5 > mDistance:
+                    utility -= (10-mDistance)
+                
+                elif 2 > mDistance:
+                    utility -= 100
+
+        #Para comer el punto
+        if (currentGameState.getNumFood() > successorGameState.getNumFood()):
+            utility += 20
+
+        #Nos comemos una capsula (si podemos)
+        if (newPos in newCapsules):
+            utility += 50
+        for capsule in newCapsules:
+            utility -= manhattanDistance(capsule, newPos)
+
+        #con esto seleccionamos comernos el punto mas cercano. 
+        closestFood = float('inf')
+        for food in newFood.asList():
+            closestFood = min(manhattanDistance(food, newPos), closestFood)
+        utility -= closestFood
+
+        #si nos quedamos quietos resta
+        if Directions.STOP == action:
+            utility -= 5
+
+        return utility
+        #return successorGameState.getScore()
+
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -135,7 +177,32 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.maxval(gameState, 0, 0)[0]
+
+    def minimax(self, gameState, agentIndex, depth):
+        if depth is self.depth * gameState.getNumAgents() \
+                or gameState.isLose() or gameState.isWin():
+            return self.evaluationFunction(gameState)
+        if agentIndex is 0:
+            return self.maxval(gameState, agentIndex, depth)[1]
+        else:
+            return self.minval(gameState, agentIndex, depth)[1]
+
+    # Encuentra la accion mas optima para pacman. 
+    def maxval(self, gameState, agentIndex, depth):
+        bestAction = ("max",-float("inf"))
+        for action in gameState.getLegalActions(agentIndex):
+            succAction = (action,self.minimax(gameState.generateSuccessor(agentIndex,action),(depth + 1)%gameState.getNumAgents(),depth+1))
+            bestAction = max(bestAction,succAction,key=lambda x:x[1])
+        return bestAction
+
+    # encuentra la acción que es mejor para el fantasma (no importa cuál sea esa acción)
+    def minval(self, gameState, agentIndex, depth):
+        bestAction = ("min",float("inf"))
+        for action in gameState.getLegalActions(agentIndex):
+            succAction = (action,self.minimax(gameState.generateSuccessor(agentIndex,action),(depth + 1)%gameState.getNumAgents(),depth+1))
+            bestAction = min(bestAction,succAction,key = lambda x:x[1])
+        return bestAction
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
